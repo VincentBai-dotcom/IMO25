@@ -31,6 +31,7 @@ import requests
 import argparse
 import logging
 from dotenv import load_dotenv
+from datetime import datetime
 
 # --- CONFIGURATION ---
 # The model to use. "gemini-1.5-flash" is fast and capable.
@@ -42,6 +43,7 @@ API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}
 # Global variables for logging
 _log_file = None
 original_print = print
+_json_output = {}  # Global variable to store JSON output
 
 
 def log_print(*args, **kwargs):
@@ -82,6 +84,50 @@ def close_log_file():
     if _log_file is not None:
         _log_file.close()
         _log_file = None
+
+
+def initialize_json_output(problem_statement, other_prompts):
+    """Initialize the JSON output structure."""
+    global _json_output
+    _json_output = {
+        "metadata": {
+            "timestamp": datetime.now().isoformat(),
+            "model_name": MODEL_NAME,
+            "problem_statement": problem_statement,
+            "other_prompts": other_prompts,
+        },
+        "runs": [],
+        "final_solution": None,
+        "success": False,
+    }
+
+
+def add_run_to_json(run_number, data):
+    """Add a run's data to the JSON output."""
+    global _json_output
+    run_data = {
+        "run_number": run_number,
+        "timestamp": datetime.now().isoformat(),
+        **data,
+    }
+    _json_output["runs"].append(run_data)
+
+
+def save_json_output(output_path):
+    """Save the JSON output to a file."""
+    global _json_output
+    if output_path:
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(_json_output, f, indent=2, ensure_ascii=False)
+            print(f"JSON output saved to: {output_path}")
+        except Exception as e:
+            print(f"Error saving JSON output: {e}")
+    else:
+        # Print to stdout if no file specified
+        print("\n" + "=" * 50 + " JSON OUTPUT " + "=" * 50)
+        print(json.dumps(_json_output, indent=2, ensure_ascii=False))
+        print("=" * 50 + " END JSON OUTPUT " + "=" * 50)
 
 
 step1_prompt = """
@@ -376,24 +422,27 @@ Response in exactly "yes" or "no". No other words.
 
 
 def init_explorations(problem_statement, verbose=True, other_prompts=[]):
+    """Initialize explorations and return structured JSON data."""
     p1 = build_request_payload(
         system_prompt=step1_prompt,
         question_prompt=problem_statement,
-        # other_prompts=["* Please explore all methods for solving the problem, including casework, induction, contradiction, and analytic geometry, if applicable."]
-        # other_prompts = ["You may use analytic geometry to solve the problem."]
         other_prompts=other_prompts,
     )
 
-    print(f">>>>>> Initial prompt.")
+    # Store initial prompt
+    initial_prompt = p1.copy()
+
+    print(">>>>>>> Initial prompt.")
     print(json.dumps(p1, indent=4))
 
     response1 = send_api_request(get_api_key(), p1)
     output1 = extract_text_from_response(response1)
 
-    print(f">>>>>>> First solution: ")
+    print(">>>>>>> First solution: ")
     print(json.dumps(output1, indent=4))
 
-    print(f">>>>>>> Self improvement start:")
+    # Self improvement
+    print(">>>>>>> Self improvement start:")
     p1["contents"].append({"role": "model", "parts": [{"text": output1}]})
     p1["contents"].append(
         {"role": "user", "parts": [{"text": self_improvement_prompt}]}
@@ -401,60 +450,92 @@ def init_explorations(problem_statement, verbose=True, other_prompts=[]):
 
     response2 = send_api_request(get_api_key(), p1)
     solution = extract_text_from_response(response2)
-    print(f">>>>>>> Corrected solution: ")
+    print(">>>>>>> Corrected solution: ")
     print(json.dumps(solution, indent=4))
 
-    print(f">>>>>>> Check if solution is complete:")
+    # Check if solution is complete
+    print(">>>>>>> Check if solution is complete:")
     is_complete = check_if_solution_claimed_complete(output1)
-    if not is_complete:
-        print(f">>>>>>> Solution is not complete. Failed.")
-        return None, None, None, None
 
-    print(f">>>>>>> Vefify the solution.")
+    if not is_complete:
+        print(">>>>>>> Solution is not complete. Failed.")
+        return {
+            "status": "failed",
+            "reason": "solution_not_complete",
+            "initial_prompt": initial_prompt,
+            "first_solution": output1,
+            "corrected_solution": solution,
+            "is_complete": False,
+        }
+
+    # Verify the solution
+    print(">>>>>>> Verify the solution.")
     verify, good_verify = verify_solution(problem_statement, solution, verbose)
 
-    print(f">>>>>>> Initial verification: ")
+    print(">>>>>>> Initial verification: ")
     print(json.dumps(verify, indent=4))
     print(f">>>>>>> verify results: {good_verify}")
 
-    return p1, solution, verify, good_verify
+    return {
+        "status": "success",
+        "initial_prompt": initial_prompt,
+        "first_solution": output1,
+        "corrected_solution": solution,
+        "verification": {
+            "bug_report": verify,
+            "verification_result": good_verify,
+            "is_correct": "yes" in good_verify.lower(),
+        },
+        "is_complete": True,
+    }
 
 
 def agent(problem_statement, other_prompts=[]):
-    p1, solution, verify, good_verify = init_explorations(
-        problem_statement, True, other_prompts
-    )
+    """Main agent function that returns structured JSON data."""
+    init_result = init_explorations(problem_statement, True, other_prompts)
 
-    if solution is None:
-        print(">>>>>>> Failed in finding a complete solution.")
-        return None
+    if init_result["status"] == "failed":
+        return {
+            "status": "failed",
+            "reason": init_result["reason"],
+            "initial_exploration": init_result,
+        }
 
+    solution = init_result["corrected_solution"]
+    verify = init_result["verification"]["bug_report"]
+    good_verify = init_result["verification"]["verification_result"]
+
+    iterations = []
     error_count = 0
     correct_count = 1
     success = False
+
     for i in range(30):
         print(
             f"Number of iterations: {i}, number of corrects: {correct_count}, number of errors: {error_count}"
         )
 
+        iteration_data = {
+            "iteration": i,
+            "correct_count": correct_count,
+            "error_count": error_count,
+            "verification_result": good_verify,
+        }
+
         if "yes" not in good_verify.lower():
-            # clear
+            # Clear counters
             correct_count = 0
             error_count += 1
 
-            # self improvement
+            # Self improvement
             print(">>>>>>> Verification does not pass, correcting ...")
-            # establish a new prompt that contains the solution and the verification
-
             p1 = build_request_payload(
                 system_prompt=step1_prompt,
                 question_prompt=problem_statement,
-                # other_prompts=["You may use analytic geometry to solve the problem."]
                 other_prompts=other_prompts,
             )
 
             p1["contents"].append({"role": "model", "parts": [{"text": solution}]})
-
             p1["contents"].append(
                 {
                     "role": "user",
@@ -470,32 +551,73 @@ def agent(problem_statement, other_prompts=[]):
             print(">>>>>>> Corrected solution:")
             print(json.dumps(solution, indent=4))
 
-            print(f">>>>>>> Check if solution is complete:")
+            # Check if solution is complete
+            print(">>>>>>> Check if solution is complete:")
             is_complete = check_if_solution_claimed_complete(solution)
             if not is_complete:
-                print(f">>>>>>> Solution is not complete. Failed.")
-                return None
+                print(">>>>>>> Solution is not complete. Failed.")
+                iteration_data["status"] = "failed"
+                iteration_data["reason"] = "solution_not_complete"
+                iterations.append(iteration_data)
+                return {
+                    "status": "failed",
+                    "reason": "solution_not_complete",
+                    "iterations": iterations,
+                    "initial_exploration": init_result,
+                }
 
-        print(f">>>>>>> Verify the solution.")
+            iteration_data["corrected_solution"] = solution
+
+        # Verify the solution
+        print(">>>>>>> Verify the solution.")
         verify, good_verify = verify_solution(problem_statement, solution)
+        iteration_data["verification"] = {
+            "bug_report": verify,
+            "verification_result": good_verify,
+            "is_correct": "yes" in good_verify.lower(),
+        }
 
         if "yes" in good_verify.lower():
             print(">>>>>>> Solution is good, verifying again ...")
             correct_count += 1
             error_count = 0
+            iteration_data["status"] = "success"
 
         if correct_count >= 5:
+            success = True
+            iteration_data["status"] = "final_success"
+            iterations.append(iteration_data)
             print(">>>>>>> Correct solution found.")
             print(json.dumps(solution, indent=4))
-            return solution
+            return {
+                "status": "success",
+                "final_solution": solution,
+                "iterations": iterations,
+                "initial_exploration": init_result,
+                "total_iterations": i + 1,
+            }
 
         elif error_count >= 10:
+            iteration_data["status"] = "failed"
+            iteration_data["reason"] = "too_many_errors"
+            iterations.append(iteration_data)
             print(">>>>>>> Failed in finding a correct solution.")
-            return None
+            return {
+                "status": "failed",
+                "reason": "too_many_errors",
+                "iterations": iterations,
+                "initial_exploration": init_result,
+            }
 
-    if not success:
-        print(">>>>>>> Failed in finding a correct solution.")
-        return None
+        iterations.append(iteration_data)
+
+    print(">>>>>>> Failed in finding a correct solution.")
+    return {
+        "status": "failed",
+        "reason": "max_iterations_reached",
+        "iterations": iterations,
+        "initial_exploration": init_result,
+    }
 
 
 if __name__ == "__main__":
@@ -518,6 +640,9 @@ if __name__ == "__main__":
         default=10,
         help="Maximum number of runs (default: 10)",
     )
+    parser.add_argument(
+        "--output_json", "-j", type=str, help="Path to save JSON output (optional)"
+    )
 
     args = parser.parse_args()
 
@@ -527,9 +652,6 @@ if __name__ == "__main__":
     if args.other_prompts:
         other_prompts = args.other_prompts.split(",")
 
-    print(">>>>>>> Other prompts:")
-    print(other_prompts)
-
     # Set up logging if log file is specified
     if args.log:
         if not set_log_file(args.log):
@@ -538,17 +660,36 @@ if __name__ == "__main__":
 
     problem_statement = read_file_content(args.problem_file)
 
+    # Initialize JSON output
+    initialize_json_output(problem_statement, other_prompts)
+
+    print(">>>>>>> Other prompts:")
+    print(other_prompts)
+
     for i in range(max_runs):
         print(f"\n\n>>>>>>>>>>>>>>>>>>>>>>>>>> Run {i} of {max_runs} ...")
         try:
-            sol = agent(problem_statement, other_prompts)
-            if sol is not None:
+            result = agent(problem_statement, other_prompts)
+
+            # Add run to JSON output
+            add_run_to_json(i, result)
+
+            if result["status"] == "success":
                 print(f">>>>>>> Found a correct solution in run {i}.")
-                print(json.dumps(sol, indent=4))
+                print(json.dumps(result["final_solution"], indent=4))
+                _json_output["final_solution"] = result["final_solution"]
+                _json_output["success"] = True
                 break
+            else:
+                print(f">>>>>>> Run {i} failed: {result['reason']}")
+
         except Exception as e:
             print(f">>>>>>> Error in run {i}: {e}")
+            add_run_to_json(i, {"status": "error", "error_message": str(e)})
             continue
 
     # Close log file if it was opened
     close_log_file()
+
+    # Save JSON output
+    save_json_output(args.output_json)
