@@ -11,6 +11,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import markdown
 
 
 def load_json_file(file_path):
@@ -161,8 +162,8 @@ def create_html_header(title):
             margin-bottom: 10px;
         }}
         .bug-report {{
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
+            background-color: white;
+            border: 1px solid white;
             border-radius: 6px;
             padding: 15px;
             margin-top: 10px;
@@ -212,15 +213,190 @@ def create_html_header(title):
             font-size: 1.2em;
         }}
         .problem-statement {{
-            background-color: #e8f5e8;
-            border: 1px solid #c3e6c3;
+            background-color: white;
+            border: 1px solid #f5c6cb;
             border-radius: 6px;
             padding: 20px;
             margin: 20px 0;
-            white-space: pre-wrap;
             font-family: 'Georgia', serif;
             line-height: 1.8;
         }}
+        
+        /* Problem statement markdown styling */
+        .problem-statement h1, .problem-statement h2, .problem-statement h3, .problem-statement h4, .problem-statement h5, .problem-statement h6 {{
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }}
+        
+        .problem-statement h1 {{
+            font-size: 1.5em;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 0.3em;
+        }}
+        
+        .problem-statement h2 {{
+            font-size: 1.3em;
+            border-bottom: 1px solid #f5c6cb;
+            padding-bottom: 0.2em;
+        }}
+        
+        .problem-statement h3 {{
+            font-size: 1.1em;
+        }}
+        
+        .problem-statement strong {{
+            color: #2c3e50;
+            font-weight: 600;
+        }}
+        
+        .problem-statement em {{
+            color: #34495e;
+            font-style: italic;
+        }}
+        
+        .problem-statement ul, .problem-statement ol {{
+            margin: 1em 0;
+            padding-left: 2em;
+        }}
+        
+        .problem-statement li {{
+            margin: 0.3em 0;
+        }}
+        
+        .problem-statement code {{
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            padding: 0.2em 0.4em;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }}
+        
+        .problem-statement pre {{
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1em;
+            overflow-x: auto;
+        }}
+        
+        .problem-statement pre code {{
+            background: none;
+            border: none;
+            padding: 0;
+        }}
+        
+        .problem-statement blockquote {{
+            border-left: 4px solid #e74c3c;
+            margin: 1em 0;
+            padding-left: 1em;
+            color: #7f8c8d;
+            font-style: italic;
+        }}
+        
+        /* Markdown styling */
+        .solution-text h1, .solution-text h2, .solution-text h3, .solution-text h4, .solution-text h5, .solution-text h6 {{
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }}
+        
+        .solution-text h1 {{
+            font-size: 1.5em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.3em;
+        }}
+        
+        .solution-text h2 {{
+            font-size: 1.3em;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 0.2em;
+        }}
+        
+        .solution-text h3 {{
+            font-size: 1.1em;
+        }}
+        
+        .solution-text strong {{
+            color: #2c3e50;
+            font-weight: 600;
+        }}
+        
+        .solution-text em {{
+            color: #34495e;
+            font-style: italic;
+        }}
+        
+        .solution-text ul, .solution-text ol {{
+            margin: 1em 0;
+            padding-left: 2em;
+        }}
+        
+        .solution-text li {{
+            margin: 0.3em 0;
+        }}
+        
+        .solution-text code {{
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            padding: 0.2em 0.4em;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }}
+        
+        .solution-text pre {{
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1em;
+            overflow-x: auto;
+        }}
+        
+        .solution-text pre code {{
+            background: none;
+            border: none;
+            padding: 0;
+        }}
+        
+        .solution-text blockquote {{
+            border-left: 4px solid #3498db;
+            margin: 1em 0;
+            padding-left: 1em;
+            color: #7f8c8d;
+            font-style: italic;
+        }}
+        
+        /* MathJax styling */
+        .MathJax {{
+            font-size: 1.1em;
+        }}
+        
+        /* Ensure proper spacing around math */
+        .math-content {{
+            line-height: 1.8;
+        }}
+        
+        .math-content p {{
+            margin: 1em 0;
+        }}
+        
+        /* Better formatting for mathematical content */
+        .solution-text {{
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            font-family: 'Georgia', serif;
+            font-size: 0.95em;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.8;
+        }}
+        
         @media (max-width: 768px) {{
             .container {{
                 padding: 15px;
@@ -233,6 +409,24 @@ def create_html_header(title):
             }}
         }}
     </style>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {{
+            tex: {{
+                inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+                displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            }},
+            options: {{
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }}
+        }};
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
     <div class="container">
@@ -290,7 +484,15 @@ def format_problem_statement(statement):
 
     # Clean up the statement
     cleaned = statement.replace("*** Problem Statement ***\n\n", "")
-    return cleaned.strip()
+    cleaned = cleaned.strip()
+
+    # Ensure proper spacing for list items - fix newline + asterisk spacing
+    cleaned = cleaned.replace("\n*", "\n\n*")
+
+    # Convert markdown to HTML
+    return markdown.markdown(
+        cleaned, extensions=["extra", "codehilite", "sane_lists", "nl2br"]
+    )
 
 
 def create_metadata_section(data):
@@ -387,7 +589,15 @@ def create_iteration_section(iteration, index):
         html += """
             <button class="toggle-btn">Show Solution</button>
             <div class="solution-text">"""
-        html += iteration["corrected_solution"]
+        # Pre-process to ensure proper list item spacing
+        solution_text = iteration["corrected_solution"].replace("\n*", "\n\n*")
+
+        # Convert markdown to HTML
+        solution_html = markdown.markdown(
+            solution_text,
+            extensions=["extra", "codehilite", "sane_lists", "nl2br"],
+        )
+        html += solution_html
         html += "</div>"
 
     # Verification details
@@ -399,7 +609,15 @@ def create_iteration_section(iteration, index):
         if "bug_report" in verification:
             html += '<div class="bug-report">'
             html += f"<strong>Bug Report:</strong><br>"
-            html += verification["bug_report"].replace("\n", "<br>")
+            # Pre-process to ensure proper list item spacing
+            bug_report_text = verification["bug_report"].replace("\n*", "\n\n*")
+
+            # Convert markdown to HTML
+            bug_report_html = markdown.markdown(
+                bug_report_text,
+                extensions=["extra", "codehilite", "sane_lists", "nl2br"],
+            )
+            html += bug_report_html
             html += "</div>"
 
         html += "</div>"
