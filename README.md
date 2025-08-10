@@ -1,9 +1,5 @@
 # IMO 2025 Problem Solver
 
-> **Note:** This repository is a **fork** of the original [IMO 2025 Problem Solver](https://github.com/lyang36/IMO25) by Lin Yang and Yichen Huang.  
-> I am forking this repository for the purpose of **reproducing the results** reported in their work.  
-> All credit for the original code and methodology goes to the original authors.
-
 A parallel AI agent system for solving International Mathematical Olympiad (IMO) problems using Google's Gemini API.
 
 ## Overview
@@ -16,6 +12,10 @@ This project consists of two main components:
 
 1. **Python 3.7+** installed on your system
 2. **Google Gemini API key** - Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
+3. **Required Python packages**:
+   ```bash
+   pip install requests
+   ```
 
 ## Setup
 
@@ -24,15 +24,6 @@ This project consists of two main components:
    - Create a `.env` file in the project directory
    - Add your API key: `GOOGLE_API_KEY=your_api_key_here`
    - Or set it as an environment variable: `export GOOGLE_API_KEY=your_api_key_here`
-3. **Create a python virtual environment and activate (optional)**:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate 
-   ```
-4. **Install required Python packages**:
-   ```bash
-   pip install -r requirements.txt
-   ```
 
 ## Usage
 
